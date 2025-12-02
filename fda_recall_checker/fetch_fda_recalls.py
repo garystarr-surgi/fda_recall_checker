@@ -1,66 +1,57 @@
-import frappe
-import requests
-from frappe.utils import getdate
+# fetch_fda_recalls.py
 
-FDA_API_URL = "https://api.fda.gov/device/recall.json?limit=100"
+import requests
+import frappe
+
+FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=1000"
 
 def fetch_fda_recalls():
     """
-    Fetch FDA Device Recalls and store in ERPNext
+    Fetches FDA medical device recalls from openFDA and stores them
+    into the FDA Device Recall doctype.
     """
+
     try:
-        r = requests.get(FDA_API_URL, timeout=30)
-        r.raise_for_status()
-        data = r.json()
+        response = requests.get(FDA_RECALL_URL, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+
         results = data.get("results", [])
+        if not results:
+            frappe.log_error("FDA Recall API returned no results", "FDA Recall Fetch")
+            return "No results found"
 
-        for recall in results:
-            recall_number = recall.get("recall_number")
-            device_name = recall.get("product_description") or recall.get("device_name")
-            manufacturer = recall.get("recalling_firm")
-            product_code = recall.get("product_code")
-            recall_date = getdate(recall.get("report_date"))
-            reason = recall.get("reason_for_recall")
-            status = recall.get("status", "Active")
+        for item in results:
+            recall_number = item.get("recall_number")
 
-            # Check if recall already exists
-            existing = frappe.db.exists("FDA Device Recall", {"recall_number": recall_number})
-            if not existing:
-                doc = frappe.get_doc({
-                    "doctype": "FDA Device Recall",
-                    "recall_number": recall_number,
-                    "device_name": device_name,
-                    "manufacturer": manufacturer,
-                    "product_code": product_code,
-                    "recall_date": recall_date,
-                    "reason": reason,
-                    "status": status
-                })
-                doc.insert(ignore_permissions=True)
-                frappe.db.commit()
-                # After inserting, try to match inventory
-                match_inventory(doc)
+            if not recall_number:
+                continue
+
+            # Check if this recall already exists
+            if frappe.db.exists("FDA Device Recall", {"recall_number": recall_number}):
+                doc = frappe.get_doc("FDA Device Recall", recall_number)
+            else:
+                doc = frappe.new_doc("FDA Device Recall")
+                doc.recall_number = recall_number
+
+            # Map fields safely
+            doc.device_name   = item.get("product_description")
+            doc.manufacturer  = item.get("manufacturer_name")
+            doc.product_code  = item.get("product_code")
+            doc.recall_date   = item.get("report_date")
+            doc.reason        = item.get("reason_for_recall")
+            doc.status        = item.get("status")
+
+            # Your added fields
+            doc.recall_firm   = item.get("recalling_firm")
+            doc.code_info     = item.get("code_info")
+
+            # Save record
+            doc.save(ignore_permissions=True)
+
+        frappe.db.commit()
+        return f"Imported {len(results)} recall records"
 
     except Exception as e:
-        frappe.log_error(f"FDA Recall Fetch Error: {str(e)}", "FDA Recall Checker")
-
-
-def match_inventory(recall_doc):
-    """
-    Cross-reference recall with ERPNext Item master
-    """
-    items = frappe.get_all("Item", ["name", "item_name", "item_code", "manufacturer", "description"])
-    for item in items:
-        match = False
-        # Exact match by item_name / product_code
-        if item.item_name.lower() == (recall_doc.product_code or "").lower():
-            match = True
-        # Match by manufacturer + description
-        elif item.manufacturer and recall_doc.manufacturer and \
-             item.manufacturer.lower() == recall_doc.manufacturer.lower() and \
-             recall_doc.device_name.lower() in (item.description or "").lower():
-            match = True
-        if match:
-            recall_doc.matched_item = item.name
-            recall_doc.save(ignore_permissions=True)
-            frappe.db.commit()
+        frappe.log_error(frappe.get_traceback(), "FDA Recall Fetch Failed")
+        return f"Error: {str(e)}"
