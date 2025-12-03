@@ -1,75 +1,66 @@
-# fetch_fda_recalls.py
-
 import frappe
 import requests
-from frappe.utils import getdate
-import uuid
+from frappe.utils import scrub, getdate
+
+FDA_RECALL_URL = "https://api.fda.gov/device/recall.json"
+BATCH_SIZE = 1000  # max per request
 
 @frappe.whitelist()
 def fetch_fda_recalls():
-    """
-    Fetch FDA medical device recalls from openFDA and store in FDA Device Recall DocType.
-    Truncate Data fields to avoid 'Value too big' errors.
-    """
-    FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=100"
-
     try:
-        response = requests.get(FDA_RECALL_URL, timeout=30)
-        response.raise_for_status()
-        data = response.json()
+        # Step 1: get the latest recall date we already have
+        last_date = frappe.db.sql("""
+            SELECT MAX(recall_date) FROM `tabFDA Device Recall`
+        """)[0][0]
 
-        results = data.get("results", [])
-        if not results:
-            frappe.log_error("FDA Recall API returned no results", "FDA Recall Fetch")
-            return "No results found"
+        total_fetched = 0
+        skip = 0
 
-        imported_count = 0
+        while True:
+            params = {"limit": BATCH_SIZE, "skip": skip}
+            
+            # Step 2: if we have a last_date, filter FDA API query
+            if last_date:
+                # FDA API uses YYYYMMDD format for dates
+                params['search'] = f"report_date:>{last_date.strftime('%Y%m%d')}"
 
-        for idx, item in enumerate(results, start=1):
-            # Use res_event_number as unique recall_number
-            recall_number = item.get("res_event_number")
-            if not recall_number:
-                recall_number = f"NO_NUMBER_{uuid.uuid4().hex[:8]}"
+            response = requests.get(FDA_RECALL_URL, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            results = data.get("results", [])
 
-            # Check if document exists
-            existing = frappe.get_all(
-                "FDA Device Recall",
-                filters={"recall_number": recall_number},
-                fields=["name"]
-            )
-            if existing:
-                doc = frappe.get_doc("FDA Device Recall", existing[0].name)
-            else:
+            if not results:
+                break  # no more records
+
+            for item in results:
+                recall_number = item.get("recall_number")
+                device_name = item.get("product_description") or "Unknown Device"
+
+                doc_name = f"{scrub(device_name)}-{recall_number}"
+
+                # Skip if already exists
+                if frappe.db.exists("FDA Device Recall", doc_name):
+                    continue
+
                 doc = frappe.new_doc("FDA Device Recall")
+                doc.name = doc_name
                 doc.recall_number = recall_number
+                doc.device_name = device_name
+                doc.manufacturer = item.get("manufacturer_name")
+                doc.product_code = item.get("product_code")
+                doc.recall_date = item.get("report_date")
+                doc.reason = item.get("reason_for_recall")
+                doc.status = item.get("status")
+                doc.recall_firm = item.get("recalling_firm")
+                doc.code_info = item.get("code_info")
 
-            # Truncate Data fields to 140 chars
-            doc.device_name   = (item.get("product_description") or "")[:140]
-            doc.manufacturer  = (item.get("recalling_firm") or "")[:140]
-            doc.product_code  = (item.get("product_code") or "")[:140]
-            doc.code_info     = (item.get("code_info") or "")[:140]
-            doc.recall_firm   = (item.get("recalling_firm") or "")[:140]
+                doc.save(ignore_permissions=True)
+                total_fetched += 1
 
-            # Text fields can remain full length
-            doc.reason        = item.get("reason_for_recall")
-            doc.status        = item.get("recall_status")
-
-            # Use event_date_posted for recall_date if available
-            report_date = item.get("event_date_posted")
-            if report_date:
-                try:
-                    doc.recall_date = getdate(str(report_date))
-                except Exception:
-                    doc.recall_date = None
-
-            # Save document
-            doc.flags.ignore_mandatory = True
-            doc.flags.ignore_validate = True
-            doc.save(ignore_permissions=True)
-            imported_count += 1
+            skip += BATCH_SIZE
 
         frappe.db.commit()
-        return f"Imported {imported_count} recall records"
+        return f"Imported {total_fetched} new recall records"
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "FDA Recall Fetch Failed")
