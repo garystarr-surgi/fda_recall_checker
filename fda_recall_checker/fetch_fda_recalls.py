@@ -51,7 +51,6 @@ def fetch_fda_recalls():
             report_date = item.get("report_date")
             if report_date:
                 try:
-                    # Some dates come as integer YYYYMMDD, convert to string first
                     doc.recall_date = getdate(str(report_date))
                 except Exception:
                     doc.recall_date = None
@@ -67,4 +66,4 @@ def fetch_fda_recalls():
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "FDA Recall Fetch Failed")
-        return f"Error: {s
+        return f"Error: {str(e)}"  # <-- make sure quotes are correct
