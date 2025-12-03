@@ -4,15 +4,13 @@ import frappe
 import requests
 from frappe.utils import getdate
 
-@frappe.whitelist()   # <-- THIS IS REQUIRED
+@frappe.whitelist()   # This makes it callable via frappe.call()
 def fetch_fda_recalls():
-
-FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=1000"
-
     """
     Fetches FDA medical device recalls from openFDA and stores them
     into the FDA Device Recall doctype.
     """
+    FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=1000"
 
     try:
         response = requests.get(FDA_RECALL_URL, timeout=30)
@@ -24,9 +22,10 @@ FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=1000"
             frappe.log_error("FDA Recall API returned no results", "FDA Recall Fetch")
             return "No results found"
 
+        imported_count = 0
+
         for item in results:
             recall_number = item.get("recall_number")
-
             if not recall_number:
                 continue
 
@@ -45,15 +44,16 @@ FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=1000"
             doc.reason        = item.get("reason_for_recall")
             doc.status        = item.get("status")
 
-            # Your added fields
+            # Added fields
             doc.recall_firm   = item.get("recalling_firm")
             doc.code_info     = item.get("code_info")
 
             # Save record
             doc.save(ignore_permissions=True)
+            imported_count += 1
 
         frappe.db.commit()
-        return f"Imported {len(results)} recall records"
+        return f"Imported {imported_count} recall records"
 
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "FDA Recall Fetch Failed")
