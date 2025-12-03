@@ -1,11 +1,14 @@
 # fetch_fda_recalls.py
 
-import requests
 import frappe
+import requests
+from frappe.utils import getdate
+
+@frappe.whitelist()   # <-- THIS IS REQUIRED
+def fetch_fda_recalls():
 
 FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=1000"
 
-def fetch_fda_recalls():
     """
     Fetches FDA medical device recalls from openFDA and stores them
     into the FDA Device Recall doctype.
