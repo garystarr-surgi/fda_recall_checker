@@ -3,13 +3,13 @@
 import frappe
 import requests
 from frappe.utils import getdate
-import uuid
 
 @frappe.whitelist()
 def fetch_fda_recalls():
     """
-    Fetch FDA medical device recalls and save them into the
-    'FDA Device Recall' doctype. Always creates new docs if necessary.
+    Fetch FDA medical device recalls from the openFDA API
+    and save them into the 'FDA Device Recall' doctype.
+    Avoids duplicates by checking the recall_number field.
     """
     FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=1000"
 
@@ -27,25 +27,30 @@ def fetch_fda_recalls():
 
         for item in results:
             recall_number = item.get("recall_number")
-            # Generate unique name if recall_number is missing
-            doc_name = recall_number or str(uuid.uuid4())
+            if not recall_number:
+                # Skip records with no recall number
+                continue
 
-            # Check if doc already exists
-            doc = frappe.get_doc("FDA Device Recall") if not frappe.db.exists("FDA Device Recall", doc_name) else frappe.get_doc("FDA Device Recall", doc_name)
-
-            if not doc:
+            # Check if a record with this recall_number already exists
+            existing = frappe.get_all(
+                "FDA Device Recall",
+                filters={"recall_number": recall_number},
+                fields=["name"]
+            )
+            if existing:
+                doc = frappe.get_doc("FDA Device Recall", existing[0].name)
+            else:
                 doc = frappe.new_doc("FDA Device Recall")
-                doc.name = doc_name
+                doc.recall_number = recall_number
 
-            # Map fields
-            doc.recall_number = recall_number
-            doc.device_name = item.get("product_description")
-            doc.manufacturer = item.get("manufacturer_name")
-            doc.product_code = item.get("product_code")
-            doc.reason = item.get("reason_for_recall")
-            doc.status = item.get("status")
-            doc.recall_firm = item.get("recalling_firm")
-            doc.code_info = item.get("code_info")
+            # Map fields from API safely
+            doc.device_name   = item.get("product_description")
+            doc.manufacturer  = item.get("manufacturer_name")
+            doc.product_code  = item.get("product_code")
+            doc.reason        = item.get("reason_for_recall")
+            doc.status        = item.get("status")
+            doc.recall_firm   = item.get("recalling_firm")
+            doc.code_info     = item.get("code_info")
 
             # Convert report_date safely
             report_date = item.get("report_date")
@@ -63,7 +68,7 @@ def fetch_fda_recalls():
             imported_count += 1
 
             # Optional: log each imported recall
-            frappe.logger().info(f"Imported FDA Recall: {doc_name} - {doc.device_name}")
+            frappe.logger().info(f"Imported FDA Recall: {recall_number} - {doc.device_name}")
 
         frappe.db.commit()
         return f"Imported {imported_count} recall records"
