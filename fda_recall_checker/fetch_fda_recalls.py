@@ -73,6 +73,9 @@ def fetch_fda_recalls():
                 if doc.device_name:
                     doc.device_name = doc.device_name[:140]
 
+                if doc.recall_firm:
+                    doc.recall_firm = doc.recall_firm[:140]
+
                 doc.save(ignore_permissions=True)
                 total_fetched += 1
 
