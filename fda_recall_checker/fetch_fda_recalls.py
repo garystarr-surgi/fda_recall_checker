@@ -1,9 +1,17 @@
 import frappe
 import requests
-from frappe.utils import scrub, getdate
+import re
+from frappe.utils import getdate
 
 FDA_RECALL_URL = "https://api.fda.gov/device/recall.json"
 BATCH_SIZE = 1000  # max per request
+
+def scrub(text):
+    """Convert text to lowercase, replace spaces with underscores, remove non-alphanum"""
+    text = text.lower().strip()
+    text = re.sub(r'\s+', '_', text)
+    text = re.sub(r'[^a-z0-9_-]', '', text)
+    return text
 
 @frappe.whitelist()
 def fetch_fda_recalls():
@@ -18,8 +26,7 @@ def fetch_fda_recalls():
 
         while True:
             params = {"limit": BATCH_SIZE, "skip": skip}
-            
-            # Step 2: if we have a last_date, filter FDA API query
+
             if last_date:
                 # FDA API uses YYYYMMDD format for dates
                 params['search'] = f"report_date:>{last_date.strftime('%Y%m%d')}"
@@ -30,7 +37,7 @@ def fetch_fda_recalls():
             results = data.get("results", [])
 
             if not results:
-                break  # no more records
+                break
 
             for item in results:
                 recall_number = item.get("recall_number")
@@ -53,6 +60,10 @@ def fetch_fda_recalls():
                 doc.status = item.get("status")
                 doc.recall_firm = item.get("recalling_firm")
                 doc.code_info = item.get("code_info")
+
+                # Truncate fields to avoid "Value too big"
+                if doc.reason:
+                    doc.reason = doc.reason[:140]
 
                 doc.save(ignore_permissions=True)
                 total_fetched += 1
