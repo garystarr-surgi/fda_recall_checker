@@ -2,15 +2,15 @@
 
 import frappe
 import requests
-from frappe.utils import getdate, now_datetime
+from frappe.utils import getdate
 import uuid
 
 @frappe.whitelist()
 def fetch_fda_recalls():
     """
-    Fetch FDA medical device recalls from openFDA API and store in FDA Device Recall.
-    Logs every item to Error Log for debugging.
-    Generates a UUID for missing recall_number so all items appear.
+    Fetch FDA medical device recalls from openFDA and store in FDA Device Recall DocType.
+    Uses res_event_number as unique ID.
+    Logs raw items for debugging.
     """
     FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=100"
 
@@ -27,15 +27,15 @@ def fetch_fda_recalls():
         imported_count = 0
 
         for idx, item in enumerate(results, start=1):
-            # log raw item for debugging
+            # Log raw item for debugging
             frappe.log_error(f"Item {idx}: {item}", "FDA Recall Raw Data")
 
-            recall_number = item.get("recall_number")
+            # Use res_event_number as unique recall_number
+            recall_number = item.get("res_event_number")
             if not recall_number:
-                # generate a unique name for missing recall_number
                 recall_number = f"NO_NUMBER_{uuid.uuid4().hex[:8]}"
 
-            # check if record exists
+            # Check if document exists
             existing = frappe.get_all(
                 "FDA Device Recall",
                 filters={"recall_number": recall_number},
@@ -47,28 +47,27 @@ def fetch_fda_recalls():
                 doc = frappe.new_doc("FDA Device Recall")
                 doc.recall_number = recall_number
 
-            # Map fields safely
+            # Map fields from API to DocType
             doc.device_name   = item.get("product_description")
-            doc.manufacturer  = item.get("manufacturer_name")
+            doc.manufacturer  = item.get("recalling_firm")
             doc.product_code  = item.get("product_code")
             doc.reason        = item.get("reason_for_recall")
-            doc.status        = item.get("status")
+            doc.status        = item.get("recall_status")
             doc.recall_firm   = item.get("recalling_firm")
             doc.code_info     = item.get("code_info")
 
-            # Convert report_date safely
-            report_date = item.get("report_date")
+            # Use event_date_posted for recall_date if available
+            report_date = item.get("event_date_posted")
             if report_date:
                 try:
                     doc.recall_date = getdate(str(report_date))
                 except Exception:
                     doc.recall_date = None
 
-            # Save doc safely
+            # Save document
             doc.flags.ignore_mandatory = True
             doc.flags.ignore_validate = True
             doc.save(ignore_permissions=True)
-
             imported_count += 1
 
         frappe.db.commit()
