@@ -67,6 +67,9 @@ def fetch_fda_recalls():
                 if doc.reason:
                     doc.reason = doc.reason[:140]
 
+                if doc.code_info:
+                    doc.code_info = doc.code_info[:140]
+
                 doc.save(ignore_permissions=True)
                 total_fetched += 1
 
