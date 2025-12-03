@@ -4,22 +4,19 @@ import re
 from frappe.utils import getdate
 
 FDA_RECALL_URL = "https://api.fda.gov/device/recall.json"
-BATCH_SIZE = 1000  # FDA max
+BATCH_SIZE = 1000  # max per request
 
 def scrub(text):
-    """Convert text to a safe docname."""
+    """Convert text to lowercase, replace spaces with underscores, remove non-alphanum"""
     text = text.lower().strip()
     text = re.sub(r'\s+', '_', text)
     text = re.sub(r'[^a-z0-9_-]', '', text)
-    return text[:140]  # prevent overly long names
-
+    return text
 
 @frappe.whitelist()
 def fetch_fda_recalls():
     try:
-        # ────────────────────────────────────────────────
-        # 1. Find newest stored recall date
-        # ────────────────────────────────────────────────
+        # Step 1: get the latest recall date we already have
         last_date = frappe.db.sql("""
             SELECT MAX(recall_date) FROM `tabFDA Device Recall`
         """)[0][0]
@@ -30,9 +27,9 @@ def fetch_fda_recalls():
         while True:
             params = {"limit": BATCH_SIZE, "skip": skip}
 
-            # FDA requires YYYYMMDD format
             if last_date:
-                params["search"] = f"event_date_posted:>{last_date.strftime('%Y%m%d')}"
+                # FDA API uses YYYYMMDD format for dates
+                params['search'] = f"report_date:>{last_date.strftime('%Y%m%d')}"
 
             response = requests.get(FDA_RECALL_URL, params=params, timeout=30)
             response.raise_for_status()
@@ -43,36 +40,32 @@ def fetch_fda_recalls():
                 break
 
             for item in results:
-                # Correct FDA fields
-                recall_number = item.get("product_res_number")        # recall number
+
+                # New mapping:
+                recall_number = item.get("product_res_number")   # Recall Number
                 device_name = item.get("product_description") or "Unknown Device"
-                product_code = item.get("cfres_id")
-                report_date = item.get("event_date_posted")          # recall date
-                reason = item.get("reason_for_recall")
-                status = item.get("recall_status")
-                recall_firm = item.get("recalling_firm")
-                code_info = item.get("code_info")
+                doc_name = f"{scrub(device_name)}-{recall_number}"
 
-                if not recall_number:
-                    continue
-
-                # Build unique docname
-                doc_name = f"{scrub(device_name)}-{scrub(recall_number)}"
-
-                # Skip existing
+                # Skip if already exists
                 if frappe.db.exists("FDA Device Recall", doc_name):
                     continue
 
                 doc = frappe.new_doc("FDA Device Recall")
                 doc.name = doc_name
-                doc.recall_number = recall_number
-                doc.device_name = device_name[:140]
-                doc.product_code = product_code
-                doc.recall_date = report_date
-                doc.reason = (reason or "")[:140]
-                doc.status = status
-                doc.recall_firm = (recall_firm or "")[:140]
-                doc.code_info = (code_info or "")[:140]
+
+                # New FDA field → ERPNext field mapping
+                doc.recall_number = item.get("product_res_number")
+                doc.device_name = item.get("product_description")
+                doc.product_code = item.get("crfres_id")              # Product Code
+                doc.recall_date = item.get("event_date_posted")       # Report Date
+                doc.reason = item.get("reason_for_recall")            # Reason
+                doc.status = item.get("recall_status")                # Status
+                doc.recall_firm = item.get("recalling_firm")          # Recalling Firm
+                doc.code_info = item.get("code_info")                 # Code Info
+
+                # Leave your truncate logic the same
+                if doc.reason:
+                    doc.reason = doc.reason[:140]
 
                 doc.save(ignore_permissions=True)
                 total_fetched += 1
