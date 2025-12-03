@@ -9,8 +9,7 @@ import uuid
 def fetch_fda_recalls():
     """
     Fetch FDA medical device recalls from openFDA and store in FDA Device Recall DocType.
-    Uses res_event_number as unique ID.
-    Logs raw items for debugging.
+    Truncate Data fields to avoid 'Value too big' errors.
     """
     FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=100"
 
@@ -27,9 +26,6 @@ def fetch_fda_recalls():
         imported_count = 0
 
         for idx, item in enumerate(results, start=1):
-            # Log raw item for debugging
-            frappe.log_error(f"Item {idx}: {item}", "FDA Recall Raw Data")
-
             # Use res_event_number as unique recall_number
             recall_number = item.get("res_event_number")
             if not recall_number:
@@ -47,14 +43,16 @@ def fetch_fda_recalls():
                 doc = frappe.new_doc("FDA Device Recall")
                 doc.recall_number = recall_number
 
-            # Map fields from API to DocType
-            doc.device_name   = item.get("product_description")
-            doc.manufacturer  = item.get("recalling_firm")
-            doc.product_code  = item.get("product_code")
+            # Truncate Data fields to 140 chars
+            doc.device_name   = (item.get("product_description") or "")[:140]
+            doc.manufacturer  = (item.get("recalling_firm") or "")[:140]
+            doc.product_code  = (item.get("product_code") or "")[:140]
+            doc.code_info     = (item.get("code_info") or "")[:140]
+            doc.recall_firm   = (item.get("recalling_firm") or "")[:140]
+
+            # Text fields can remain full length
             doc.reason        = item.get("reason_for_recall")
             doc.status        = item.get("recall_status")
-            doc.recall_firm   = item.get("recalling_firm")
-            doc.code_info     = item.get("code_info")
 
             # Use event_date_posted for recall_date if available
             report_date = item.get("event_date_posted")
