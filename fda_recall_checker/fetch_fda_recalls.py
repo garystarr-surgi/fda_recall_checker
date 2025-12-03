@@ -2,16 +2,17 @@
 
 import frappe
 import requests
-from frappe.utils import getdate
+from frappe.utils import getdate, now_datetime
+import uuid
 
 @frappe.whitelist()
 def fetch_fda_recalls():
     """
-    Fetch FDA medical device recalls from the openFDA API
-    and save them into the 'FDA Device Recall' doctype.
-    Avoids duplicates by checking the recall_number field.
+    Fetch FDA medical device recalls from openFDA API and store in FDA Device Recall.
+    Logs every item to Error Log for debugging.
+    Generates a UUID for missing recall_number so all items appear.
     """
-    FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=1000"
+    FDA_RECALL_URL = "https://api.fda.gov/device/recall.json?limit=100"
 
     try:
         response = requests.get(FDA_RECALL_URL, timeout=30)
@@ -25,13 +26,16 @@ def fetch_fda_recalls():
 
         imported_count = 0
 
-        for item in results:
+        for idx, item in enumerate(results, start=1):
+            # log raw item for debugging
+            frappe.log_error(f"Item {idx}: {item}", "FDA Recall Raw Data")
+
             recall_number = item.get("recall_number")
             if not recall_number:
-                # Skip records with no recall number
-                continue
+                # generate a unique name for missing recall_number
+                recall_number = f"NO_NUMBER_{uuid.uuid4().hex[:8]}"
 
-            # Check if a record with this recall_number already exists
+            # check if record exists
             existing = frappe.get_all(
                 "FDA Device Recall",
                 filters={"recall_number": recall_number},
@@ -43,7 +47,7 @@ def fetch_fda_recalls():
                 doc = frappe.new_doc("FDA Device Recall")
                 doc.recall_number = recall_number
 
-            # Map fields from API safely
+            # Map fields safely
             doc.device_name   = item.get("product_description")
             doc.manufacturer  = item.get("manufacturer_name")
             doc.product_code  = item.get("product_code")
@@ -66,9 +70,6 @@ def fetch_fda_recalls():
             doc.save(ignore_permissions=True)
 
             imported_count += 1
-
-            # Optional: log each imported recall
-            frappe.logger().info(f"Imported FDA Recall: {recall_number} - {doc.device_name}")
 
         frappe.db.commit()
         return f"Imported {imported_count} recall records"
