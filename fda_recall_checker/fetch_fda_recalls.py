@@ -56,7 +56,7 @@ def fetch_fda_recalls():
                 # New FDA field → ERPNext field mapping
                 doc.recall_number = item.get("product_res_number")
                 doc.device_name = item.get("product_description")
-                doc.product_code = item.get("crfres_id")              # Product Code
+                doc.product_code = item.get("cfres_id")              # Product Code
                 doc.recall_date = item.get("event_date_posted")       # Report Date
                 doc.reason = item.get("reason_for_recall")            # Reason
                 doc.status = item.get("recall_status")                # Status
