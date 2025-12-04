@@ -30,7 +30,17 @@ sudo mkdir -p /opt/fda_recall_checker
 sudo chown $USER:$USER /opt/fda_recall_checker
 
 # Copy application files to /opt/fda_recall_checker
-# (You can use git, scp, or any file transfer method)
+# Option A: Using Git (recommended)
+cd /opt
+git clone <your-repo-url> fda_recall_checker
+cd fda_recall_checker
+
+# Option B: Using SCP from Windows
+# scp -r * user@ubuntu-server:/opt/fda_recall_checker/
+
+# Note: The Flask app files (app.py, models.py, etc.) should be directly in
+# /opt/fda_recall_checker/, NOT in a subdirectory. If you see a nested
+# fda_recall_checker/ directory, that contains old Frappe app code and can be ignored.
 ```
 
 ## Step 3: Create Virtual Environment
@@ -118,8 +128,14 @@ autostart=true
 autorestart=true
 redirect_stderr=true
 stdout_logfile=/var/log/fda_recall_checker.log
-environment=PATH="/opt/fda_recall_checker/venv/bin"
+stderr_logfile=/var/log/fda_recall_checker_error.log
+environment=PATH="/opt/fda_recall_checker/venv/bin:/usr/local/bin:/usr/bin:/bin"
 ```
+
+**Important**: 
+- The `directory` path should point to `/opt/fda_recall_checker` where `app.py` is located, NOT to `/opt/fda_recall_checker/fda_recall_checker`
+- The Flask application files (app.py, models.py, routes.py, etc.) must be directly in `/opt/fda_recall_checker/`
+- If you get a "spawn error", see the troubleshooting section below
 
 Reload supervisor:
 
@@ -214,6 +230,56 @@ tail -f /var/log/fda_recall_checker.log
 ```
 
 ## Troubleshooting
+
+### Supervisor Spawn Error
+
+If you get a "spawn error" when starting supervisor, try these steps:
+
+1. **Verify all paths exist:**
+   ```bash
+   ls -la /opt/fda_recall_checker/app.py
+   ls -la /opt/fda_recall_checker/venv/bin/gunicorn
+   ls -la /opt/fda_recall_checker/gunicorn_config.py
+   ls -la /opt/fda_recall_checker/wsgi.py
+   ```
+
+2. **Test gunicorn command manually:**
+   ```bash
+   cd /opt/fda_recall_checker
+   source venv/bin/activate
+   /opt/fda_recall_checker/venv/bin/gunicorn -c /opt/fda_recall_checker/gunicorn_config.py wsgi:app
+   ```
+   If this fails, fix the error first before using supervisor.
+
+3. **Check if gunicorn is installed:**
+   ```bash
+   cd /opt/fda_recall_checker
+   source venv/bin/activate
+   pip install gunicorn
+   ```
+
+4. **Fix permissions (if using www-data user):**
+   ```bash
+   sudo chown -R www-data:www-data /opt/fda_recall_checker
+   ```
+
+5. **Alternative: Run as your user instead of www-data:**
+   Edit `/etc/supervisor/conf.d/fda_recall_checker.conf` and change:
+   ```ini
+   user=your-username
+   ```
+   Then:
+   ```bash
+   sudo supervisorctl reread
+   sudo supervisorctl update
+   sudo supervisorctl start fda_recall_checker
+   ```
+
+6. **Check supervisor logs:**
+   ```bash
+   sudo tail -f /var/log/supervisor/supervisord.log
+   sudo tail -f /var/log/fda_recall_checker_error.log
+   ```
 
 ### Check Application Status
 ```bash
