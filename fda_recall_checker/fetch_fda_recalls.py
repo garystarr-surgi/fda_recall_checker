@@ -28,7 +28,7 @@ def fetch_fda_recalls():
             params = {"limit": BATCH_SIZE, "skip": skip}
 
             if last_date:
-                # FDA API uses YYYYMMDD format for dates
+                # FDA API uses YYYYMMDD format
                 params['search'] = f"event_date_posted:>{last_date.strftime('%Y%m%d')}"
 
             response = requests.get(FDA_RECALL_URL, params=params, timeout=30)
@@ -40,41 +40,40 @@ def fetch_fda_recalls():
                 break
 
             for item in results:
-
-                # New mapping:
-                recall_number = item.get("product_res_number")   # Recall Number
+                # Updated mapping
+                recall_number = item.get("product_res_number")
                 device_name = item.get("product_description") or "Unknown Device"
+                product_code = item.get("crfres_id")
+                recall_date = item.get("event_date_posted")
+                reason = item.get("reason_for_recall")
+                status = item.get("recall_status")
+                recall_firm = item.get("recalling_firm")
+                code_info = item.get("code_info")
+
+                # Build unique name
                 doc_name = f"{scrub(device_name)}-{recall_number}"
 
                 # Skip if already exists
                 if frappe.db.exists("FDA Device Recall", doc_name):
                     continue
 
+                # Create document
                 doc = frappe.new_doc("FDA Device Recall")
                 doc.name = doc_name
 
-                # New FDA field → ERPNext field mapping
-                doc.recall_number = item.get("product_res_number")
-                doc.device_name = item.get("product_description")
-                doc.product_code = item.get("cfres_id")              # Product Code
-                doc.recall_date = item.get("event_date_posted")       # Report Date
-                doc.reason = item.get("reason_for_recall")            # Reason
-                doc.status = item.get("recall_status")                # Status
-                doc.recall_firm = item.get("recalling_firm")          # Recalling Firm
-                doc.code_info = item.get("code_info")                 # Code Info
+                # Field mappings
+                doc.recall_number = recall_number
+                doc.device_name = device_name
+                doc.product_code = product_code
+                doc.recall_date = recall_date
+                doc.reason = reason
+                doc.status = status
+                doc.recall_firm = recall_firm
+                doc.code_info = code_info
 
-                # Leave your truncate logic the same
-                if doc.reason:
-                    doc.reason = doc.reason[:140]
-
+                # Only truncate code_info
                 if doc.code_info:
                     doc.code_info = doc.code_info[:140]
-
-                if doc.device_name:
-                    doc.device_name = doc.device_name[:140]
-
-                if doc.recall_firm:
-                    doc.recall_firm = doc.recall_firm[:140]
 
                 doc.save(ignore_permissions=True)
                 total_fetched += 1
