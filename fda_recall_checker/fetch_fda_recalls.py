@@ -29,7 +29,7 @@ def fetch_fda_recalls():
 
             if last_date:
                 # FDA API uses YYYYMMDD format for dates
-                params['search'] = f"report_date:>{last_date.strftime('%Y%m%d')}"
+                params['search'] = f"event_date_posted:>{last_date.strftime('%Y%m%d')}"
 
             response = requests.get(FDA_RECALL_URL, params=params, timeout=30)
             response.raise_for_status()
