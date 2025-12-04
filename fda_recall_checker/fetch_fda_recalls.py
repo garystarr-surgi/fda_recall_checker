@@ -1,13 +1,13 @@
 import frappe
 import requests
 import re
+from datetime import datetime
 
 FDA_RECALL_URL = "https://api.fda.gov/device/recall.json"
-BATCH_SIZE = 1000  # max per request
+BATCH_SIZE = 1000
 
 
 def scrub(text):
-    """Convert text to lowercase, replace spaces with underscores, remove non-alphanum."""
     text = text.lower().strip()
     text = re.sub(r"\s+", "_", text)
     text = re.sub(r"[^a-z0-9_-]", "", text)
@@ -17,10 +17,12 @@ def scrub(text):
 @frappe.whitelist()
 def fetch_fda_recalls():
     try:
-        # Get latest recall_date from our records
+        # Get most recent recall_date we have stored
         last_date = frappe.db.sql("""
             SELECT MAX(recall_date) FROM `tabFDA Device Recall`
         """)[0][0]
+
+        last_search_date = last_date.strftime("%Y%m%d") if last_date else None
 
         total_fetched = 0
         skip = 0
@@ -28,9 +30,9 @@ def fetch_fda_recalls():
         while True:
             params = {"limit": BATCH_SIZE, "skip": skip}
 
-            if last_date:
-                # ⚠ FDA API only supports searching by report_date
-                params["search"] = f"report_date:>{last_date.strftime('%Y%m%d')}"
+            # FDA searches ONLY work on report_date
+            if last_search_date:
+                params["search"] = f"report_date:>{last_search_date}"
 
             response = requests.get(FDA_RECALL_URL, params=params, timeout=30)
             response.raise_for_status()
@@ -42,39 +44,40 @@ def fetch_fda_recalls():
 
             for item in results:
 
-                # Map fields EXACTLY as you specified
                 recall_number = item.get("product_res_number")
                 device_name = item.get("product_description") or "Unknown Device"
-                product_code = item.get("cfres_id")
-                posted_date = item.get("event_date_posted")
-                reason = item.get("reason_for_recall")
-                status = item.get("recall_status")
-                recall_firm = item.get("recalling_firm")
-                code_info = item.get("code_info")
+                report_date = item.get("report_date")
+                event_date_posted = item.get("event_date_posted")
 
-                # --- skip if no recall number ---
+                # Skip if recall number is missing
                 if not recall_number:
                     continue
 
-                # Generate unique doc name
+                # Build unique document name
                 doc_name = f"{scrub(device_name)}-{recall_number}"
 
-                # Skip duplicates
                 if frappe.db.exists("FDA Device Recall", doc_name):
                     continue
 
-                # Create new document
+                # Determine recall_date (use FDA report_date, fallback to event_date_posted)
+                if report_date:
+                    recall_date = report_date
+                else:
+                    recall_date = event_date_posted  # fallback because FDA allows no search here
+
                 doc = frappe.new_doc("FDA Device Recall")
                 doc.name = doc_name
-                doc.recall_number = recall_number
-                doc.device_name = device_name
-                doc.product_code = product_code
-                doc.recall_date = posted_date  # stored as recall_date
-                doc.reason = reason
-                doc.status = status
-                doc.recall_firm = recall_firm
 
-                # Truncate ONLY code_info if needed
+                # Map fields exactly as you requested
+                doc.recall_number = item.get("product_res_number")
+                doc.device_name = item.get("product_description")
+                doc.product_code = item.get("cfres_id")
+                doc.recall_date = recall_date
+                doc.reason = item.get("reason_for_recall")
+                doc.status = item.get("recall_status")
+                doc.recall_firm = item.get("recalling_firm")
+
+                code_info = item.get("code_info")
                 if code_info and len(code_info) > 140:
                     doc.code_info = code_info[:140]
                 else:
