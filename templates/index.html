@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">FDA Recall Dashboard</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">Total Recalls</h5>
+                <h2 class="card-text">{{ total_recalls }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">Database Status</h5>
+                <h6 class="card-text">Active</h6>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">Last Updated</h5>
+                <h6 class="card-text">Auto-sync Daily</h6>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Recent Recalls</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_recalls %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Device Name</th>
+                                <th>Recall Number</th>
+                                <th>Status</th>
+                                <th>Firm</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for recall in recent_recalls %}
+                            <tr>
+                                <td>{{ recall.recall_date.strftime('%Y-%m-%d') if recall.recall_date else 'N/A' }}</td>
+                                <td>{{ recall.device_name or 'N/A' }}</td>
+                                <td>{{ recall.recall_number or 'N/A' }}</td>
+                                <td><span class="badge bg-warning">{{ recall.status or 'N/A' }}</span></td>
+                                <td>{{ recall.recall_firm or 'N/A' }}</td>
+                                <td><a href="{{ url_for('recall_detail', recall_id=recall.id) }}" class="btn btn-sm btn-primary">View</a></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('recalls') }}" class="btn btn-primary">View All Recalls</a>
+                </div>
+                {% else %}
+                <p class="text-muted">No recalls found. Click "Fetch New Recalls" to import data from the FDA API.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

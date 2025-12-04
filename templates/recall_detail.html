@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <a href="{{ url_for('recalls') }}" class="btn btn-secondary mb-3">← Back to All Recalls</a>
+        <h1 class="mb-4">Recall Details</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">{{ recall.device_name or 'Unknown Device' }}</h5>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Recall Number:</dt>
+                    <dd class="col-sm-9">{{ recall.recall_number or 'N/A' }}</dd>
+
+                    <dt class="col-sm-3">Recall Date:</dt>
+                    <dd class="col-sm-9">{{ recall.recall_date.strftime('%Y-%m-%d') if recall.recall_date else 'N/A' }}</dd>
+
+                    <dt class="col-sm-3">Status:</dt>
+                    <dd class="col-sm-9"><span class="badge bg-warning">{{ recall.status or 'N/A' }}</span></dd>
+
+                    <dt class="col-sm-3">Product Code:</dt>
+                    <dd class="col-sm-9">{{ recall.product_code or 'N/A' }}</dd>
+
+                    <dt class="col-sm-3">Recalling Firm:</dt>
+                    <dd class="col-sm-9">{{ recall.recall_firm or 'N/A' }}</dd>
+
+                    <dt class="col-sm-3">Reason for Recall:</dt>
+                    <dd class="col-sm-9">{{ recall.reason or 'N/A' }}</dd>
+
+                    <dt class="col-sm-3">Code Info:</dt>
+                    <dd class="col-sm-9">{{ recall.code_info or 'N/A' }}</dd>
+
+                    <dt class="col-sm-3">Record ID:</dt>
+                    <dd class="col-sm-9"><code>{{ recall.name }}</code></dd>
+
+                    <dt class="col-sm-3">Created:</dt>
+                    <dd class="col-sm-9">{{ recall.created_at.strftime('%Y-%m-%d %H:%M:%S') if recall.created_at else 'N/A' }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
