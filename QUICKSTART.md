@@ -29,18 +29,22 @@
 
 From your Windows machine, use one of these methods:
 
-**Option A: Using SCP (if you have SSH access)**
-```powershell
-# Install WinSCP or use PowerShell SSH
-scp -r * user@ubuntu-server:/opt/fda_recall_checker/
-```
-
-**Option B: Using Git**
+**Option A: Using Git (Recommended)**
 ```bash
 # On Ubuntu server
 cd /opt
 git clone <your-repo-url> fda_recall_checker
+cd fda_recall_checker
 ```
+
+**Option B: Using SCP (if you have SSH access)**
+```powershell
+# Install WinSCP or use PowerShell SSH
+# Copy all files from the repo root to /opt/fda_recall_checker/
+scp -r * user@ubuntu-server:/opt/fda_recall_checker/
+```
+
+**Important**: The Flask app files (`app.py`, `models.py`, etc.) should be directly in `/opt/fda_recall_checker/`. If you see a nested `fda_recall_checker/` subdirectory, that's the old Frappe app code and can be ignored.
 
 **Option C: Manual Copy**
 - Use FileZilla or similar FTP client
