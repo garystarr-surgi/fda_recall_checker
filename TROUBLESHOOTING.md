@@ -1,5 +1,114 @@
 # Troubleshooting Guide
 
+## Supervisor Exiting Immediately (Exit Status 1)
+
+If supervisor shows "exited: fda_recall_checker (exit status 1; not expected)" repeatedly, the application is crashing on startup. Follow these steps:
+
+### Step 1: Check Error Logs
+
+```bash
+# Check the error log file
+sudo tail -50 /var/log/fda_recall_checker_error.log
+
+# Check supervisor log
+sudo tail -50 /var/log/supervisor/supervisord.log
+
+# If error log doesn't exist, check stdout log
+sudo tail -50 /var/log/fda_recall_checker.log
+```
+
+### Step 2: Test Imports Manually
+
+Run the test script to identify import errors:
+
+```bash
+cd /opt/fda_recall_checker
+source venv/bin/activate
+python3 test_imports.py
+```
+
+Or test manually:
+
+```bash
+cd /opt/fda_recall_checker
+source venv/bin/activate
+python3 -c "from app import app; print('OK')"
+```
+
+### Step 3: Test Gunicorn Directly
+
+Try running gunicorn manually to see the actual error:
+
+```bash
+cd /opt/fda_recall_checker
+source venv/bin/activate
+/opt/fda_recall_checker/venv/bin/gunicorn -c /opt/fda_recall_checker/gunicorn_config.py wsgi:app
+```
+
+This will show you the exact error message.
+
+### Step 4: Common Issues and Fixes
+
+**Issue: ImportError or ModuleNotFoundError**
+```bash
+# Make sure you're in the right directory
+cd /opt/fda_recall_checker
+
+# Reinstall dependencies
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Issue: Database initialization error**
+```bash
+cd /opt/fda_recall_checker
+source venv/bin/activate
+python3 -c "from app import app, init_db; init_db()"
+```
+
+**Issue: Missing dependencies**
+```bash
+cd /opt/fda_recall_checker
+source venv/bin/activate
+pip install Flask Flask-SQLAlchemy requests APScheduler gunicorn python-dotenv
+```
+
+**Issue: Permission error on database file**
+```bash
+sudo chown www-data:www-data /opt/fda_recall_checker/fda_recalls.db
+# Or if using your user:
+sudo chown $USER:$USER /opt/fda_recall_checker/fda_recalls.db
+```
+
+**Issue: Circular import or app context error**
+Make sure `wsgi.py` properly initializes the app context before importing scheduler.
+
+### Step 5: Run Debug Script
+
+Use the debug script to check everything:
+
+```bash
+cd /opt/fda_recall_checker
+chmod +x debug_startup.sh
+./debug_startup.sh
+```
+
+### Step 6: Temporary Fix - Run Without Scheduler
+
+If the scheduler is causing issues, temporarily modify `wsgi.py` to comment out the scheduler:
+
+```python
+# Start scheduler (only if not already running)
+try:
+    from scheduler import start_scheduler
+    # scheduler = start_scheduler()  # Comment this out temporarily
+    pass
+except Exception as e:
+    print(f"Warning: Could not start scheduler: {e}")
+```
+
+Then test again.
+
 ## Supervisor Spawn Error
 
 If you get a "spawn error" when running `sudo supervisorctl start fda_recall_checker`, try these solutions:

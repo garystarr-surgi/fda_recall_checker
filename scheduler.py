@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 def scheduled_fetch():
     """Scheduled task to fetch FDA recalls"""
-    from fetch_fda_recalls import fetch_fda_recalls
-    logger.info("Starting scheduled FDA recall fetch...")
     try:
+        from fetch_fda_recalls import fetch_fda_recalls
+        logger.info("Starting scheduled FDA recall fetch...")
         result = fetch_fda_recalls()
         logger.info(f"Scheduled fetch completed: {result}")
     except Exception as e:
-        logger.error(f"Error in scheduled fetch: {str(e)}")
+        logger.error(f"Error in scheduled fetch: {str(e)}", exc_info=True)
 
 def start_scheduler():
     """Start the background scheduler"""
