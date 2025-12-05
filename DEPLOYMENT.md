@@ -92,21 +92,20 @@ Press Ctrl+C to stop the test server.
 
 ## Step 7: Set Up Gunicorn (Production Server)
 
-Create a Gunicorn configuration file:
+The `gunicorn_config.py` file is already included in the repository. If you need to create it:
 
 ```bash
 cd /opt/fda_recall_checker
 nano gunicorn_config.py
 ```
 
-Add:
+The config uses a `logs/` directory in the app folder for log files. Create it:
 
-```python
-bind = "127.0.0.1:5000"
-workers = 4
-worker_class = "sync"
-timeout = 120
-keepalive = 5
+```bash
+mkdir -p /opt/fda_recall_checker/logs
+chmod 755 /opt/fda_recall_checker/logs
+# If using www-data user:
+sudo chown www-data:www-data /opt/fda_recall_checker/logs
 ```
 
 ## Step 8: Configure Supervisor (Process Manager)
