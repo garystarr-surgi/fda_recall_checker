@@ -184,10 +184,20 @@ server {
 Enable the site:
 
 ```bash
+# Create symlink to enable your site
 sudo ln -s /etc/nginx/sites-available/fda_recall_checker /etc/nginx/sites-enabled/
+
+# IMPORTANT: Remove the default nginx site (this is why you see "Welcome to nginx!")
+sudo rm /etc/nginx/sites-enabled/default
+
+# Test nginx configuration
 sudo nginx -t
-sudo systemctl restart nginx
+
+# If test passes, reload nginx
+sudo systemctl reload nginx
 ```
+
+**Important**: If you still see "Welcome to nginx!" after this, the default site is still active. Make sure you removed `/etc/nginx/sites-enabled/default`.
 
 ## Step 10: Configure Firewall
 
