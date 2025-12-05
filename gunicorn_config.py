@@ -11,14 +11,24 @@ keepalive = 5
 loglevel = "info"
 
 # Log to stderr/stdout (supervisor will capture these)
-# If you want file logging, use a writable directory or create log files with proper permissions
-# Option 1: Use app directory (writable by app user)
-log_dir = os.path.join(os.path.dirname(__file__), "logs")
-os.makedirs(log_dir, exist_ok=True)
-accesslog = os.path.join(log_dir, "access.log")
-errorlog = os.path.join(log_dir, "error.log")
+# This is the recommended approach - supervisor handles log file writing
+accesslog = "-"  # Log to stdout
+errorlog = "-"   # Log to stderr
 
-# Option 2: Comment out file logging and use stderr/stdout (recommended for supervisor)
-# accesslog = "-"  # Log to stdout
-# errorlog = "-"   # Log to stderr
+# Alternative: Use file logging if logs directory exists and is writable
+# Uncomment below and comment out the above if you prefer file logging
+# log_dir = os.path.join(os.path.dirname(__file__), "logs")
+# try:
+#     os.makedirs(log_dir, exist_ok=True)
+#     if os.access(log_dir, os.W_OK):
+#         accesslog = os.path.join(log_dir, "access.log")
+#         errorlog = os.path.join(log_dir, "error.log")
+#     else:
+#         # Fall back to stdout/stderr if not writable
+#         accesslog = "-"
+#         errorlog = "-"
+# except (OSError, PermissionError):
+#     # Fall back to stdout/stderr if directory can't be created
+#     accesslog = "-"
+#     errorlog = "-"
 

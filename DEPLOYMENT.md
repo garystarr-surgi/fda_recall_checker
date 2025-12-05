@@ -131,6 +131,8 @@ stderr_logfile=/var/log/fda_recall_checker_error.log
 environment=PATH="/opt/fda_recall_checker/venv/bin:/usr/local/bin:/usr/bin:/bin"
 ```
 
+**Note**: The gunicorn config now logs to stdout/stderr, which supervisor captures. This avoids permission issues with log files.
+
 **Important**: 
 - The `directory` path should point to `/opt/fda_recall_checker` where `app.py` is located, NOT to `/opt/fda_recall_checker/fda_recall_checker`
 - The Flask application files (app.py, models.py, routes.py, etc.) must be directly in `/opt/fda_recall_checker/`
