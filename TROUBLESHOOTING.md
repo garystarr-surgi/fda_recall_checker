@@ -73,11 +73,32 @@ source venv/bin/activate
 pip install Flask Flask-SQLAlchemy requests APScheduler gunicorn python-dotenv
 ```
 
-**Issue: Permission error on database file**
+**Issue: Permission error on database file (readonly database)**
+
+If you see `sqlite3.OperationalError: attempt to write a readonly database`:
+
 ```bash
+# Fix database file permissions
 sudo chown www-data:www-data /opt/fda_recall_checker/fda_recalls.db
-# Or if using your user:
+sudo chmod 664 /opt/fda_recall_checker/fda_recalls.db
+
+# Also fix directory permissions
+sudo chown -R www-data:www-data /opt/fda_recall_checker
+sudo chmod 755 /opt/fda_recall_checker
+
+# Verify the user can write to the database
+sudo -u www-data touch /opt/fda_recall_checker/fda_recalls.db.test
+sudo -u www-data rm /opt/fda_recall_checker/fda_recalls.db.test
+
+# Or use the provided script
+chmod +x fix_db_permissions.sh
+sudo ./fix_db_permissions.sh
+```
+
+**If using your own user instead of www-data:**
+```bash
 sudo chown $USER:$USER /opt/fda_recall_checker/fda_recalls.db
+sudo chmod 664 /opt/fda_recall_checker/fda_recalls.db
 ```
 
 **Issue: Circular import or app context error**

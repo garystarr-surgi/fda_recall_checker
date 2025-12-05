@@ -78,6 +78,23 @@ source venv/bin/activate
 python3 -c "from app import app, init_db; init_db()"
 ```
 
+**Important**: After creating the database, set proper permissions so the web server can write to it:
+
+```bash
+# If using www-data user (default)
+sudo chown www-data:www-data /opt/fda_recall_checker/fda_recalls.db
+sudo chmod 664 /opt/fda_recall_checker/fda_recalls.db
+
+# Also make sure the directory is writable
+sudo chown -R www-data:www-data /opt/fda_recall_checker
+```
+
+Or use the provided script:
+```bash
+chmod +x fix_db_permissions.sh
+sudo ./fix_db_permissions.sh
+```
+
 ## Step 6: Test the Application
 
 ```bash
