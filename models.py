@@ -9,8 +9,8 @@ class FDADeviceRecall(db.Model):
     __tablename__ = 'fda_device_recall'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200), unique=True, nullable=False, index=True)
-    recall_number = db.Column(db.String(100), index=True)
+    name = db.Column(db.String(200), index=True)
+    recall_number = db.Column(db.String(200), unique=True, nullable=False, index=True)
     device_name = db.Column(db.String(140))
     manufacturer = db.Column(db.String(200))
     product_code = db.Column(db.String(100), index=True)
