@@ -20,6 +20,33 @@ def scrub(text):
     text = re.sub(r'[^a-z0-9_-]', '', text)
     return text
 
+def extract_model_catalog_number(product_description):
+    """Extract Model/Catalog Number from product_description"""
+    if not product_description:
+        return None
+    
+    # Look for "Model/Catalog Number" or variations
+    patterns = [
+        r'Model/Catalog Number[:\s]+([A-Z0-9\s\-]+)',
+        r'Model/Catalog[:\s]+Number[:\s]+([A-Z0-9\s\-]+)',
+        r'Catalog Number[:\s]+([A-Z0-9\s\-]+)',
+        r'Model Number[:\s]+([A-Z0-9\s\-]+)',
+        r'Model[:\s]+([A-Z0-9\s\-]+)',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, product_description, re.IGNORECASE | re.MULTILINE)
+        if match:
+            model_number = match.group(1).strip()
+            # Clean up - remove extra whitespace, newlines
+            model_number = re.sub(r'\s+', ' ', model_number)
+            # Take first line if multiple lines
+            model_number = model_number.split('\n')[0].strip()
+            if model_number:
+                return model_number
+    
+    return None
+
 def parse_date(date_str):
     """Parse FDA date string to datetime object"""
     if not date_str:
@@ -119,7 +146,12 @@ def _fetch_fda_recalls():
             for item in results:
                 recall_number = item.get("product_res_number")
                 device_name = item.get("product_description") or "Unknown Device"
-                product_code = item.get("cfres_id")
+                
+                # Extract Model/Catalog Number from product_description
+                model_catalog_number = extract_model_catalog_number(device_name)
+                
+                # Use Model/Catalog Number as product_code if found, otherwise fall back to cfres_id
+                product_code = model_catalog_number or item.get("cfres_id")
 
                 doc_name = f"{scrub(device_name)}-{recall_number}"
 
@@ -138,7 +170,7 @@ def _fetch_fda_recalls():
                     name=doc_name,
                     recall_number=recall_number,
                     device_name=(device_name[:140] if device_name else None),
-                    product_code=product_code,
+                    product_code=product_code[:100] if product_code else None,  # Limit to 100 chars for product_code field
                     recall_date=recall_date,
                     reason=(item.get("reason_for_recall")[:140] if item.get("reason_for_recall") else None),
                     status=item.get("recall_status"),
