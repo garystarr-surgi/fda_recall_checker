@@ -4,12 +4,18 @@ Fetches recalls from FDA API and stores in database
 """
 import requests
 import re
+import json
 from datetime import datetime
 from database import db
 from models import FDADeviceRecall
 
 FDA_RECALL_URL = "https://api.fda.gov/device/recall.json"
 BATCH_SIZE = 1000  # max per request
+
+# ERPNext Configuration
+ERPNEXT_URL = "https://beta.surgi.shop/api/method/recall_cross_reference.check_inventory"
+ERPNEXT_API_KEY = "ae0d7bdc5c61e8b"
+ERPNEXT_API_SECRET = "c637ae040a3eae7"
 
 def scrub(text):
     """Convert text to lowercase, replace spaces with underscores, remove non-alphanum"""
@@ -67,6 +73,60 @@ def parse_date(date_str):
     except Exception:
         return None
 
+def send_recalls_to_erpnext(recalls_list):
+    """
+    Send newly fetched recalls to ERPNext for inventory cross-reference
+    
+    Args:
+        recalls_list: List of recall dictionaries to check against inventory
+        
+    Returns:
+        dict with response from ERPNext or error info
+    """
+    if not recalls_list:
+        return {"success": False, "message": "No recalls to send"}
+    
+    try:
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'token {ERPNEXT_API_KEY}:{ERPNEXT_API_SECRET}'
+        }
+        
+        # Format recalls for ERPNext API
+        formatted_recalls = []
+        for recall in recalls_list:
+            formatted_recalls.append({
+                'id': recall.get('id'),
+                'recall_number': recall.get('recall_number'),
+                'device_name': recall.get('device_name'),
+                'product_code': recall.get('product_code'),
+                'code_info': recall.get('code_info'),
+                'recall_date': recall.get('recall_date').isoformat() if recall.get('recall_date') else None,
+                'status': recall.get('status'),
+                'reason': recall.get('reason')
+            })
+        
+        response = requests.post(
+            ERPNEXT_URL,
+            headers=headers,
+            json={'recalls': json.dumps(formatted_recalls)},
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            print(f"✓ ERPNext check complete: {result.get('message', {}).get('matched_count', 0)} matches found")
+            return result
+        else:
+            error_msg = f"ERPNext API error {response.status_code}: {response.text}"
+            print(f"✗ {error_msg}")
+            return {"success": False, "error": error_msg}
+            
+    except Exception as e:
+        error_msg = f"Error sending to ERPNext: {str(e)}"
+        print(f"✗ {error_msg}")
+        return {"success": False, "error": error_msg}
+
 def fetch_fda_recalls():
     """Fetch FDA recalls from API and store in database"""
     from flask import has_app_context, current_app
@@ -82,6 +142,8 @@ def fetch_fda_recalls():
 
 def _fetch_fda_recalls():
     """Internal function that does the actual fetching"""
+    new_recalls_for_erpnext = []  # Track new recalls to send to ERPNext
+    
     try:
         # Step 1: get the latest recall date we already have
         last_recall = FDADeviceRecall.query.order_by(
@@ -188,11 +250,39 @@ def _fetch_fda_recalls():
 
                 db.session.add(recall)
                 total_fetched += 1
+                
+                # Add to list for ERPNext checking
+                new_recalls_for_erpnext.append({
+                    'id': recall.id,
+                    'recall_number': recall_number,
+                    'device_name': device_name,
+                    'product_code': product_code,
+                    'code_info': code_info_full,
+                    'recall_date': recall_date,
+                    'status': item.get("recall_status"),
+                    'reason': item.get("reason_for_recall")
+                })
 
             skip += BATCH_SIZE
 
         db.session.commit()
-        return f"Imported {total_fetched} new recall records"
+        
+        # Send new recalls to ERPNext for inventory checking
+        result_message = f"Imported {total_fetched} new recall records"
+        
+        if new_recalls_for_erpnext:
+            print(f"\n→ Sending {len(new_recalls_for_erpnext)} new recalls to ERPNext for inventory checking...")
+            erpnext_result = send_recalls_to_erpnext(new_recalls_for_erpnext)
+            
+            if erpnext_result.get('success'):
+                matched = erpnext_result.get('message', {}).get('matched_count', 0)
+                result_message += f"\nERPNext: {matched} inventory matches found"
+            else:
+                result_message += f"\nERPNext check failed: {erpnext_result.get('error', 'Unknown error')}"
+        else:
+            print("No new recalls to send to ERPNext")
+        
+        return result_message
 
     except Exception as e:
         db.session.rollback()
@@ -202,4 +292,3 @@ def _fetch_fda_recalls():
         return error_msg
     finally:
         pass  # App context will be cleaned up automatically
-
