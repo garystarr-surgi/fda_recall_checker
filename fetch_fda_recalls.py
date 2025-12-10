@@ -20,28 +20,29 @@ def scrub(text):
     text = re.sub(r'[^a-z0-9_-]', '', text)
     return text
 
-def extract_model_catalog_number(product_description):
-    """Extract Model/Catalog Number from product_description"""
-    if not product_description:
+def extract_model_catalog_number(text):
+    """Extract Model/Catalog Number from text (code_info or product_description)"""
+    if not text:
         return None
     
     # Look for "Model/Catalog Number" or variations
+    # Pattern: "Model/Catalog Number: HX-400U-30" or "Model/Catalog Number HX-400U-30"
     patterns = [
-        r'Model/Catalog Number[:\s]+([A-Z0-9\s\-]+)',
-        r'Model/Catalog[:\s]+Number[:\s]+([A-Z0-9\s\-]+)',
-        r'Catalog Number[:\s]+([A-Z0-9\s\-]+)',
-        r'Model Number[:\s]+([A-Z0-9\s\-]+)',
-        r'Model[:\s]+([A-Z0-9\s\-]+)',
+        r'Model/Catalog Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model/Catalog[:\s]+Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Catalog Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
     ]
     
     for pattern in patterns:
-        match = re.search(pattern, product_description, re.IGNORECASE | re.MULTILINE)
+        match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
         if match:
             model_number = match.group(1).strip()
             # Clean up - remove extra whitespace, newlines
             model_number = re.sub(r'\s+', ' ', model_number)
-            # Take first line if multiple lines
-            model_number = model_number.split('\n')[0].strip()
+            # Take first part before semicolon or comma if present
+            model_number = model_number.split(';')[0].split(',')[0].strip()
             if model_number:
                 return model_number
     
@@ -146,9 +147,13 @@ def _fetch_fda_recalls():
             for item in results:
                 recall_number = item.get("product_res_number")
                 device_name = item.get("product_description") or "Unknown Device"
+                code_info = item.get("code_info") or ""
                 
-                # Extract Model/Catalog Number from product_description
-                model_catalog_number = extract_model_catalog_number(device_name)
+                # Extract Model/Catalog Number from code_info first (more reliable), 
+                # then fall back to product_description
+                model_catalog_number = extract_model_catalog_number(code_info)
+                if not model_catalog_number:
+                    model_catalog_number = extract_model_catalog_number(device_name)
                 
                 # Use Model/Catalog Number as product_code if found, otherwise fall back to cfres_id
                 product_code = model_catalog_number or item.get("cfres_id")

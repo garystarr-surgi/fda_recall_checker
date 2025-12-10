@@ -10,28 +10,29 @@ from models import FDADeviceRecall
 from database import db
 import re
 
-def extract_model_catalog_number(product_description):
-    """Extract Model/Catalog Number from product_description"""
-    if not product_description:
+def extract_model_catalog_number(text):
+    """Extract Model/Catalog Number from text (code_info or product_description)"""
+    if not text:
         return None
     
     # Look for "Model/Catalog Number" or variations
+    # Pattern: "Model/Catalog Number: HX-400U-30" or "Model/Catalog Number HX-400U-30"
     patterns = [
-        r'Model/Catalog Number[:\s]+([A-Z0-9\s\-]+)',
-        r'Model/Catalog[:\s]+Number[:\s]+([A-Z0-9\s\-]+)',
-        r'Catalog Number[:\s]+([A-Z0-9\s\-]+)',
-        r'Model Number[:\s]+([A-Z0-9\s\-]+)',
-        r'Model[:\s]+([A-Z0-9\s\-]+)',
+        r'Model/Catalog Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model/Catalog[:\s]+Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Catalog Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
     ]
     
     for pattern in patterns:
-        match = re.search(pattern, product_description, re.IGNORECASE | re.MULTILINE)
+        match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
         if match:
             model_number = match.group(1).strip()
             # Clean up - remove extra whitespace, newlines
             model_number = re.sub(r'\s+', ' ', model_number)
-            # Take first line if multiple lines
-            model_number = model_number.split('\n')[0].strip()
+            # Take first part before semicolon or comma if present
+            model_number = model_number.split(';')[0].split(',')[0].strip()
             if model_number:
                 return model_number
     
@@ -61,8 +62,11 @@ def update_product_codes():
                 skipped_count += 1
                 continue
             
-            # Extract Model/Catalog Number from device_name
-            model_catalog_number = extract_model_catalog_number(recall.device_name)
+            # Extract Model/Catalog Number from code_info first (more reliable),
+            # then fall back to device_name
+            model_catalog_number = extract_model_catalog_number(recall.code_info)
+            if not model_catalog_number:
+                model_catalog_number = extract_model_catalog_number(recall.device_name)
             
             if model_catalog_number:
                 # Limit to 100 chars to match database field size
