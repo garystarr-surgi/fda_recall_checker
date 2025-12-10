@@ -70,6 +70,13 @@ def update_product_codes():
                 # Always update if we found a model number (even if product_code already exists)
                 # This ensures we get the Model/Catalog Number instead of cfres_id
                 if recall.product_code != new_product_code:
+                    # Debug specific record
+                    if recall.recall_number == 'Z-0570-2026':
+                        print(f"  DEBUG - Updating {recall.recall_number}:")
+                        print(f"    Old product_code: {recall.product_code}")
+                        print(f"    New product_code: {new_product_code}")
+                        print(f"    Code_info: {recall.code_info[:100] if recall.code_info else 'None'}")
+                    
                     recall.product_code = new_product_code
                     updated_count += 1
                 else:
@@ -78,6 +85,11 @@ def update_product_codes():
                 # Debug: show a few examples where model number wasn't found
                 if no_model_count < 5 and recall.code_info:
                     print(f"  Debug - No model found in: {recall.code_info[:80]}...")
+                # Special debug for the specific record
+                if recall.recall_number == 'Z-0570-2026':
+                    print(f"  DEBUG - No model found for {recall.recall_number}:")
+                    print(f"    Code_info: {repr(recall.code_info)}")
+                    print(f"    Device_name: {repr(recall.device_name)}")
                 no_model_count += 1
         
         # Commit all changes
