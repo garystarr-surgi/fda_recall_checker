@@ -6,7 +6,18 @@ echo "Fixing database file permissions..."
 
 DB_FILE="/opt/fda_recall_checker/fda_recalls.db"
 DB_DIR="/opt/fda_recall_checker"
-APP_USER="www-data"  # Change this if using a different user
+
+# Detect the user running the app (check supervisor config)
+if [ -f "/etc/supervisor/conf.d/fda_recall_checker.conf" ]; then
+    APP_USER=$(grep "^user=" /etc/supervisor/conf.d/fda_recall_checker.conf | cut -d'=' -f2)
+    if [ -z "$APP_USER" ]; then
+        APP_USER="www-data"  # Default
+    fi
+else
+    APP_USER="www-data"  # Default
+fi
+
+echo "Detected app user: $APP_USER"
 
 # Check if database exists
 if [ -f "$DB_FILE" ]; then
