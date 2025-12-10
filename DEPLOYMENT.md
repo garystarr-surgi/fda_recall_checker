@@ -72,28 +72,37 @@ FLASK_ENV=production
 
 ## Step 5: Initialize Database
 
+**Option A: Create database as www-data user (Recommended)**
+
+This ensures the database is created with the correct permissions from the start:
+
+```bash
+cd /opt/fda_recall_checker
+sudo chown -R www-data:www-data /opt/fda_recall_checker
+sudo -u www-data bash -c "source venv/bin/activate && python3 -c 'from app import app, init_db; init_db()'"
+```
+
+**Option B: Create database manually, then fix permissions**
+
 ```bash
 cd /opt/fda_recall_checker
 source venv/bin/activate
 python3 -c "from app import app, init_db; init_db()"
-```
 
-**Important**: After creating the database, set proper permissions so the web server can write to it:
-
-```bash
-# If using www-data user (default)
+# Then fix permissions
 sudo chown www-data:www-data /opt/fda_recall_checker/fda_recalls.db
 sudo chmod 664 /opt/fda_recall_checker/fda_recalls.db
-
-# Also make sure the directory is writable
 sudo chown -R www-data:www-data /opt/fda_recall_checker
 ```
 
-Or use the provided script:
+**Option C: Use the automated script**
+
 ```bash
 chmod +x fix_db_permissions.sh
 sudo ./fix_db_permissions.sh
 ```
+
+The script will create the database if it doesn't exist and set proper permissions automatically.
 
 ## Step 6: Test the Application
 

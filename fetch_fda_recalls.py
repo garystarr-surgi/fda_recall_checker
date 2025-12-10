@@ -67,21 +67,54 @@ def _fetch_fda_recalls():
 
         total_fetched = 0
         skip = 0
+        max_skip = 10000  # Safety limit to prevent infinite loops
+        consecutive_errors = 0
+        max_consecutive_errors = 3
 
-        while True:
+        while skip < max_skip:
             params = {"limit": BATCH_SIZE, "skip": skip}
 
             if last_date:
                 # FDA API uses YYYYMMDD format for dates
                 params['search'] = f"event_date_posted:>{last_date.strftime('%Y%m%d')}"
 
-            response = requests.get(FDA_RECALL_URL, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            results = data.get("results", [])
+            try:
+                response = requests.get(FDA_RECALL_URL, params=params, timeout=30)
+                
+                # Handle 404 - means no more results available
+                if response.status_code == 404:
+                    print(f"404 error at skip={skip} - no more results available")
+                    break
+                
+                # Handle other HTTP errors
+                response.raise_for_status()
+                
+                data = response.json()
+                results = data.get("results", [])
+                
+                # Reset error counter on success
+                consecutive_errors = 0
 
-            if not results:
-                break
+                if not results:
+                    print(f"No more results at skip={skip}")
+                    break
+                    
+            except requests.exceptions.HTTPError as e:
+                consecutive_errors += 1
+                if consecutive_errors >= max_consecutive_errors:
+                    print(f"Too many consecutive errors ({consecutive_errors}), stopping fetch")
+                    break
+                print(f"HTTP error at skip={skip}: {e}")
+                skip += BATCH_SIZE
+                continue
+            except requests.exceptions.RequestException as e:
+                consecutive_errors += 1
+                if consecutive_errors >= max_consecutive_errors:
+                    print(f"Too many consecutive errors ({consecutive_errors}), stopping fetch")
+                    break
+                print(f"Request error at skip={skip}: {e}")
+                skip += BATCH_SIZE
+                continue
 
             for item in results:
                 recall_number = item.get("product_res_number")
@@ -90,9 +123,11 @@ def _fetch_fda_recalls():
 
                 doc_name = f"{scrub(device_name)}-{recall_number}"
 
-                # Skip if already exists
-                if FDADeviceRecall.query.filter_by(name=doc_name).first():
-                    continue
+                # Skip if already exists (use no_autoflush to avoid premature flush errors)
+                with db.session.no_autoflush:
+                    existing = FDADeviceRecall.query.filter_by(name=doc_name).first()
+                    if existing:
+                        continue
 
                 # Parse recall date
                 event_date = item.get("event_date_posted")
@@ -115,10 +150,6 @@ def _fetch_fda_recalls():
                 total_fetched += 1
 
             skip += BATCH_SIZE
-            
-            # Limit to prevent infinite loops
-            if skip > 10000:  # Safety limit
-                break
 
         db.session.commit()
         return f"Imported {total_fetched} new recall records"

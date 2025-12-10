@@ -1,11 +1,12 @@
 #!/bin/bash
-# Script to fix database file permissions
+# Script to fix database file permissions and create database if needed
 # Run this on your Ubuntu server
 
 echo "Fixing database file permissions..."
 
 DB_FILE="/opt/fda_recall_checker/fda_recalls.db"
 DB_DIR="/opt/fda_recall_checker"
+APP_USER="www-data"  # Change this if using a different user
 
 # Check if database exists
 if [ -f "$DB_FILE" ]; then
@@ -15,35 +16,55 @@ if [ -f "$DB_FILE" ]; then
     ls -la "$DB_FILE"
     
     # Fix permissions - make writable by www-data or your user
-    # Option 1: If using www-data user
-    sudo chown www-data:www-data "$DB_FILE"
+    sudo chown $APP_USER:$APP_USER "$DB_FILE"
     sudo chmod 664 "$DB_FILE"
-    
-    # Option 2: If using your own user (uncomment and adjust username)
-    # sudo chown your-username:your-username "$DB_FILE"
-    # sudo chmod 664 "$DB_FILE"
     
     echo "✓ Database file permissions fixed"
 else
-    echo "Database file does not exist yet. It will be created when the app runs."
-    echo "Making sure the directory is writable..."
+    echo "Database file does not exist yet. Creating it with proper permissions..."
     
-    # Make sure the directory is writable
-    sudo chown -R www-data:www-data "$DB_DIR"
-    # Or if using your user:
-    # sudo chown -R $USER:$USER "$DB_DIR"
+    # First, make sure the directory is writable by the app user
+    sudo chown -R $APP_USER:$APP_USER "$DB_DIR"
+    sudo chmod 755 "$DB_DIR"
     
-    echo "✓ Directory permissions set"
+    # Create the database as the app user
+    echo "Initializing database as $APP_USER..."
+    cd "$DB_DIR"
+    sudo -u $APP_USER bash -c "source venv/bin/activate && python3 -c 'from app import app, init_db; init_db()'"
+    
+    if [ -f "$DB_FILE" ]; then
+        echo "✓ Database created successfully"
+        ls -la "$DB_FILE"
+    else
+        echo "⚠ Warning: Database creation may have failed. Check the error above."
+        echo "You may need to run: sudo -u $APP_USER bash -c 'cd $DB_DIR && source venv/bin/activate && python3 -c \"from app import app, init_db; init_db()\"'"
+    fi
 fi
 
-# Also fix the directory permissions
+# Ensure directory permissions are correct
 sudo chmod 755 "$DB_DIR"
 
 echo ""
-echo "Done! The database should now be writable."
+echo "Done! Verifying permissions..."
 echo ""
-echo "If you're using www-data user, verify with:"
-echo "  sudo -u www-data touch $DB_FILE.test && sudo -u www-data rm $DB_FILE.test"
+
+# Verify the user can write to the database directory
+if sudo -u $APP_USER touch "$DB_DIR/.test_write" 2>/dev/null; then
+    sudo -u $APP_USER rm "$DB_DIR/.test_write"
+    echo "✓ $APP_USER can write to the directory"
+else
+    echo "✗ $APP_USER cannot write to the directory - check permissions"
+fi
+
+if [ -f "$DB_FILE" ]; then
+    if sudo -u $APP_USER touch "$DB_FILE.test" 2>/dev/null; then
+        sudo -u $APP_USER rm "$DB_FILE.test"
+        echo "✓ $APP_USER can write to the database file"
+    else
+        echo "✗ $APP_USER cannot write to the database file - check permissions"
+    fi
+fi
+
 echo ""
-echo "If that works, the permissions are correct."
+echo "If all checks passed, the database should be writable."
 
