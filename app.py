@@ -26,10 +26,17 @@ app.register_blueprint(api_bp)
 @app.route('/')
 def index():
     """Main dashboard page"""
-    total_recalls = FDADeviceRecall.query.count()
-    recent_recalls = FDADeviceRecall.query.order_by(
-        FDADeviceRecall.recall_date.desc()
-    ).limit(10).all()
+    try:
+        total_recalls = FDADeviceRecall.query.count()
+        recent_recalls = FDADeviceRecall.query.order_by(
+            FDADeviceRecall.recall_date.desc()
+        ).limit(10).all()
+    except Exception as e:
+        # Log error but don't crash
+        import logging
+        logging.error(f"Error querying recalls: {e}")
+        total_recalls = 0
+        recent_recalls = []
     
     return render_template('index.html', 
                          total_recalls=total_recalls,
