@@ -1,5 +1,39 @@
 # Troubleshooting Guide
 
+## Database Read-Only Error (Most Common)
+
+If you see `sqlite3.OperationalError: attempt to write a readonly database`:
+
+**Quick Fix:**
+```bash
+cd /opt/fda_recall_checker
+git pull origin main
+chmod +x fix_permissions_now.sh
+sudo ./fix_permissions_now.sh
+sudo supervisorctl restart fda_recall_checker
+```
+
+**Manual Fix:**
+1. Check what user the app runs as:
+   ```bash
+   sudo cat /etc/supervisor/conf.d/fda_recall_checker.conf | grep "^user="
+   ```
+
+2. Fix database ownership:
+   ```bash
+   # If app runs as www-data:
+   sudo chown www-data:www-data /opt/fda_recall_checker/fda_recalls.db
+   sudo chmod 664 /opt/fda_recall_checker/fda_recalls.db
+   
+   # Also fix directory:
+   sudo chown -R www-data:www-data /opt/fda_recall_checker
+   ```
+
+3. Restart app:
+   ```bash
+   sudo supervisorctl restart fda_recall_checker
+   ```
+
 ## Supervisor Exiting Immediately (Exit Status 1)
 
 If supervisor shows "exited: fda_recall_checker (exit status 1; not expected)" repeatedly, the application is crashing on startup. Follow these steps:
