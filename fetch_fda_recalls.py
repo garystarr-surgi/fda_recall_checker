@@ -27,12 +27,13 @@ def extract_model_catalog_number(text):
     
     # Look for "Model/Catalog Number" or variations
     # Pattern: "Model/Catalog Number: HX-400U-30" or "Model/Catalog Number HX-400U-30"
+    # Include lowercase letters in the pattern (A-Za-z0-9)
     patterns = [
-        r'Model/Catalog Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
-        r'Model/Catalog[:\s]+Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
-        r'Catalog Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
-        r'Model Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
-        r'Model[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model/Catalog Number[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model/Catalog[:\s]+Number[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Catalog Number[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model Number[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
     ]
     
     for pattern in patterns:
@@ -171,6 +172,8 @@ def _fetch_fda_recalls():
                 recall_date = parse_date(event_date) if event_date else None
 
                 # Create new recall record
+                # Note: code_info is stored in full (up to 140 chars) to preserve Model/Catalog Number
+                code_info_full = item.get("code_info")
                 recall = FDADeviceRecall(
                     name=doc_name,
                     recall_number=recall_number,
@@ -180,7 +183,7 @@ def _fetch_fda_recalls():
                     reason=(item.get("reason_for_recall")[:140] if item.get("reason_for_recall") else None),
                     status=item.get("recall_status"),
                     recall_firm=item.get("recalling_firm"),
-                    code_info=(item.get("code_info")[:140] if item.get("code_info") else None)
+                    code_info=(code_info_full[:140] if code_info_full else None)
                 )
 
                 db.session.add(recall)

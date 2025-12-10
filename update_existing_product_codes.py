@@ -17,12 +17,13 @@ def extract_model_catalog_number(text):
     
     # Look for "Model/Catalog Number" or variations
     # Pattern: "Model/Catalog Number: HX-400U-30" or "Model/Catalog Number HX-400U-30"
+    # Include lowercase letters in the pattern (A-Za-z0-9)
     patterns = [
-        r'Model/Catalog Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
-        r'Model/Catalog[:\s]+Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
-        r'Catalog Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
-        r'Model Number[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
-        r'Model[:\s]+([A-Z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model/Catalog Number[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model/Catalog[:\s]+Number[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Catalog Number[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model Number[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Model[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
     ]
     
     for pattern in patterns:
@@ -56,12 +57,6 @@ def update_product_codes():
             if i % 100 == 0:
                 print(f"Processing {i}/{total}...")
             
-            # Skip if already has a product_code that looks like a model number
-            # (contains letters and numbers, not just numbers)
-            if recall.product_code and re.search(r'[A-Za-z]', recall.product_code):
-                skipped_count += 1
-                continue
-            
             # Extract Model/Catalog Number from code_info first (more reliable),
             # then fall back to device_name
             model_catalog_number = extract_model_catalog_number(recall.code_info)
@@ -72,13 +67,17 @@ def update_product_codes():
                 # Limit to 100 chars to match database field size
                 new_product_code = model_catalog_number[:100]
                 
-                # Only update if different
+                # Always update if we found a model number (even if product_code already exists)
+                # This ensures we get the Model/Catalog Number instead of cfres_id
                 if recall.product_code != new_product_code:
                     recall.product_code = new_product_code
                     updated_count += 1
                 else:
                     skipped_count += 1
             else:
+                # Debug: show a few examples where model number wasn't found
+                if no_model_count < 5 and recall.code_info:
+                    print(f"  Debug - No model found in: {recall.code_info[:80]}...")
                 no_model_count += 1
         
         # Commit all changes
