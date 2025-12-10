@@ -258,6 +258,13 @@ sudo ufw enable
    python3 -c "from fetch_fda_recalls import fetch_fda_recalls; print(fetch_fda_recalls())"
    ```
 
+**Check database statistics:**
+```bash
+cd /opt/fda_recall_checker
+source venv/bin/activate
+python3 check_db.py
+```
+
 ## Step 13: Verify Scheduler
 
 The scheduler is configured to run daily at 2:00 AM. Check logs:
