@@ -265,6 +265,15 @@ source venv/bin/activate
 python3 check_db.py
 ```
 
+**Update existing recalls with Model/Catalog Numbers:**
+If you have existing recalls that need their product_code updated with Model/Catalog Numbers extracted from the description:
+```bash
+cd /opt/fda_recall_checker
+source venv/bin/activate
+python3 update_existing_product_codes.py
+```
+This script will extract Model/Catalog Numbers from the device_name field and update the product_code field for all existing records.
+
 ## Step 13: Verify Scheduler
 
 The scheduler is configured to run daily at 2:00 AM. Check logs:
