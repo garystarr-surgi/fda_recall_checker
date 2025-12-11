@@ -56,7 +56,8 @@ def recalls():
             db.or_(
                 FDADeviceRecall.device_name.contains(search),
                 FDADeviceRecall.recall_number.contains(search),
-                FDADeviceRecall.recall_firm.contains(search)
+                FDADeviceRecall.recall_firm.contains(search),
+                FDADeviceRecall.recall.product.code(search)
             )
         )
     
