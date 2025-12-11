@@ -306,4 +306,3 @@ def _fetch_fda_recalls():
         return error_msg
     finally:
         pass  # App context will be cleaned up automatically
-
