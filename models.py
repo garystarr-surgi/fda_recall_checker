@@ -48,7 +48,7 @@ class RecallCheckHistory(db.Model):
     __tablename__ = 'recall_check_history'
     
     id = db.Column(db.Integer, primary_key=True)
-    check_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    check_date = db.Column(db.DateTime, default=datetime.now, nullable=False, index=True)
     new_recalls_count = db.Column(db.Integer, default=0)
     inventory_checked = db.Column(db.Boolean, default=False)
     matches_found = db.Column(db.Integer, default=0)
