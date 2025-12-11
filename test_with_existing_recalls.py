@@ -9,8 +9,16 @@ from datetime import datetime
 import sys
 import os
 
-# Make sure we're using the instance database
-os.environ['DATABASE_URL'] = 'sqlite:///instance/fda_recalls.db'
+# Get the directory where this script is located
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Use absolute path to the instance database
+db_path = os.path.join(script_dir, 'instance', 'fda_recalls.db')
+os.environ['DATABASE_URL'] = f'sqlite:///{db_path}'
+
+print(f"Using database: {db_path}")
+print(f"Database exists: {os.path.exists(db_path)}")
+print()
 
 from database import db
 from models import FDADeviceRecall
