@@ -7,7 +7,7 @@ import re
 import json
 from datetime import datetime
 from database import db
-from models import FDADeviceRecall
+from models import FDADeviceRecall, RecallCheckHistory
 
 FDA_RECALL_URL = "https://api.fda.gov/device/recall.json"
 BATCH_SIZE = 1000  # max per request
