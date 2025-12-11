@@ -57,7 +57,7 @@ def recalls():
                 FDADeviceRecall.device_name.contains(search),
                 FDADeviceRecall.recall_number.contains(search),
                 FDADeviceRecall.recall_firm.contains(search),
-                FDADeviceRecall.recall.product.code(search)
+                FDADeviceRecall.product_code.contains(search)
             )
         )
     
@@ -103,4 +103,3 @@ def init_db():
 if __name__ == '__main__':
     # For development
     app.run(host='0.0.0.0', port=5000, debug=True)
-
