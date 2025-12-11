@@ -269,31 +269,23 @@ def _fetch_fda_recalls():
         
         # Send new recalls to ERPNext for inventory checking
         result_message = f"Imported {total_fetched} new recall records"
+        inventory_checked = False
+        matches_found = 0
         
         if new_recalls_for_erpnext:
             print(f"\n→ Sending {len(new_recalls_for_erpnext)} new recalls to ERPNext for inventory checking...")
             erpnext_result = send_recalls_to_erpnext(new_recalls_for_erpnext)
+            inventory_checked = True
             
             if erpnext_result.get('success'):
-                matched = erpnext_result.get('message', {}).get('matched_count', 0)
-                result_message += f"\nERPNext: {matched} inventory matches found"
+                matches_found = erpnext_result.get('message', {}).get('matched_count', 0)
+                result_message += f"\nERPNext: {matches_found} inventory matches found"
             else:
                 result_message += f"\nERPNext check failed: {erpnext_result.get('error', 'Unknown error')}"
         else:
             print("No new recalls to send to ERPNext")
         
-        return result_message
-
-    except Exception as e:
-        db.session.rollback()
-        import traceback
-        error_msg = f"Error: {str(e)}\n{traceback.format_exc()}"
-        print(error_msg)  # Log to console
-        return error_msg
-    finally:
-        pass  # App context will be cleaned up automatically
-
-     # Log this check to history
+        # Log this check to history
         history = RecallCheckHistory(
             check_date=datetime.now(),
             new_recalls_count=total_fetched,
