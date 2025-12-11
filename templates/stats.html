@@ -34,6 +34,63 @@
     </div>
 </div>
 
+<!-- NEW: Check History Table -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Recall Check History (Last 30 Days)</h5>
+            </div>
+            <div class="card-body">
+                {% if check_history %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Last Update</th>
+                                <th>Count</th>
+                                <th>Inventory Checked</th>
+                                <th>Recalls Found</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for check in check_history %}
+                            <tr>
+                                <td>{{ check.check_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td>
+                                    {% if check.new_recalls_count > 0 %}
+                                        <span class="badge bg-success">{{ check.new_recalls_count }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">0</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if check.inventory_checked %}
+                                        <span class="badge bg-success">Yes</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">No</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if check.matches_found > 0 %}
+                                        <span class="badge bg-danger">{{ check.matches_found }}</span>
+                                    {% else %}
+                                        <span class="badge bg-success">0</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No check history available yet. History will appear after the next scheduled recall check.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-12">
         <div class="card">
@@ -69,5 +126,5 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
+{% endblock %}
