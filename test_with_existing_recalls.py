@@ -6,6 +6,12 @@ Sends the 10 most recent recalls to ERPNext to check for inventory matches
 import requests
 import json
 from datetime import datetime
+import sys
+import os
+
+# Make sure we're using the instance database
+os.environ['DATABASE_URL'] = 'sqlite:///instance/fda_recalls.db'
+
 from database import db
 from models import FDADeviceRecall
 from app import app
