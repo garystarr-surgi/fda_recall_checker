@@ -16,7 +16,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-i
 db.init_app(app)
 
 # Import models and routes (after db initialization)
-from models import FDADeviceRecall
+from models import FDADeviceRecall, RecallCheckHistory
 
 # Register blueprints
 from routes import fetch_recalls_bp, api_bp
@@ -79,6 +79,8 @@ def recall_detail(recall_id):
 @app.route('/stats')
 def stats():
     """Statistics page"""
+    from datetime import timedelta
+    
     total = FDADeviceRecall.query.count()
     by_status = db.session.query(
         FDADeviceRecall.status,
@@ -89,10 +91,17 @@ def stats():
         FDADeviceRecall.recall_date >= datetime.now().replace(day=1)
     ).count()
     
+    # Get last 30 days of check history
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+    check_history = RecallCheckHistory.query.filter(
+        RecallCheckHistory.check_date >= thirty_days_ago
+    ).order_by(RecallCheckHistory.check_date.desc()).all()
+    
     return render_template('stats.html',
                          total=total,
                          by_status=by_status,
-                         recent_count=recent_count)
+                         recent_count=recent_count,
+                         check_history=check_history)
 
 # Initialize database
 def init_db():
@@ -103,3 +112,4 @@ def init_db():
 if __name__ == '__main__':
     # For development
     app.run(host='0.0.0.0', port=5000, debug=True)
+    
