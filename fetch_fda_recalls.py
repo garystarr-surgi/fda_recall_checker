@@ -13,7 +13,7 @@ FDA_RECALL_URL = "https://api.fda.gov/device/recall.json"
 BATCH_SIZE = 1000  # max per request
 
 # ERPNext Configuration
-ERPNEXT_URL = "https://beta.surgi.shop/api/method/check_recall_inventory"
+ERPNEXT_URL = "https://beta.surgi.shop/api/method/recall_cross_reference.check_inventory"
 ERPNEXT_API_KEY = "ae0d7bdc5c61e8b"
 ERPNEXT_API_SECRET = "c637ae040a3eae7"
 
@@ -109,7 +109,7 @@ def send_recalls_to_erpnext(recalls_list):
         response = requests.post(
             ERPNEXT_URL,
             headers=headers,
-            json={'recalls': json.dumps(formatted_recalls)},
+            json={'recalls': formatted_recalls},  # Send as list, not JSON string
             timeout=60
         )
         
