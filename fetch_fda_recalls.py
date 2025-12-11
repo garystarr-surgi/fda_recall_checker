@@ -292,3 +292,26 @@ def _fetch_fda_recalls():
         return error_msg
     finally:
         pass  # App context will be cleaned up automatically
+
+     # Log this check to history
+        history = RecallCheckHistory(
+            check_date=datetime.now(),
+            new_recalls_count=total_fetched,
+            inventory_checked=inventory_checked,
+            matches_found=matches_found,
+            notes=result_message[:500] if result_message else None
+        )
+        db.session.add(history)
+        db.session.commit()
+        
+        return result_message
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        error_msg = f"Error: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)  # Log to console
+        return error_msg
+    finally:
+        pass  # App context will be cleaned up automatically
+
