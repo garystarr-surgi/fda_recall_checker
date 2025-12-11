@@ -43,3 +43,17 @@ class FDADeviceRecall(db.Model):
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
+class RecallCheckHistory(db.Model):
+    """History of recall checks against ERPNext inventory"""
+    __tablename__ = 'recall_check_history'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    check_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    new_recalls_count = db.Column(db.Integer, default=0)
+    inventory_checked = db.Column(db.Boolean, default=False)
+    matches_found = db.Column(db.Integer, default=0)
+    notes = db.Column(db.String(500))
+    
+    def __repr__(self):
+        return f'<RecallCheckHistory {self.check_date} - {self.matches_found} matches>'
+
