@@ -26,6 +26,32 @@ def scrub(text):
     text = re.sub(r'[^a-z0-9_-]', '', text)
     return text
 
+def extract_part_number(text):
+    """Extract Part Number from text (code_info)"""
+    if not text:
+        return None
+    
+    # Look for "Part Number" or variations
+    # Pattern: "Part Number: 6000-390-000" or "Part Number 6000-390-000"
+    patterns = [
+        r'Part Number[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Part[:\s]+Number[:\s]+([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+        r'Part\s*#\s*[:\s]*([A-Za-z0-9\s\-]+?)(?:;|,|\n|$)',
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+        if match:
+            part_number = match.group(1).strip()
+            # Clean up - remove extra whitespace, newlines
+            part_number = re.sub(r'\s+', ' ', part_number)
+            # Take first part before semicolon or comma if present
+            part_number = part_number.split(';')[0].split(',')[0].strip()
+            if part_number:
+                return part_number
+    
+    return None
+
 def extract_model_catalog_number(text):
     """Extract Model/Catalog Number from text (code_info or product_description)"""
     if not text:
@@ -212,14 +238,18 @@ def _fetch_fda_recalls():
                 device_name = item.get("product_description") or "Unknown Device"
                 code_info = item.get("code_info") or ""
                 
-                # Extract Model/Catalog Number from code_info first (more reliable), 
+                # Extract Part Number from code_info first (primary source for product_code)
+                part_number = extract_part_number(code_info)
+                
+                # Extract Model/Catalog Number from code_info as fallback, 
                 # then fall back to product_description
                 model_catalog_number = extract_model_catalog_number(code_info)
                 if not model_catalog_number:
                     model_catalog_number = extract_model_catalog_number(device_name)
                 
-                # Use Model/Catalog Number as product_code if found, otherwise fall back to cfres_id
-                product_code = model_catalog_number or item.get("cfres_id")
+                # Use Part Number as product_code if found (primary), 
+                # then Model/Catalog Number, otherwise fall back to cfres_id
+                product_code = part_number or model_catalog_number or item.get("cfres_id")
 
                 doc_name = f"{scrub(device_name)}-{recall_number}"
 
